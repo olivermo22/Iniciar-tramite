@@ -58,6 +58,39 @@ function distKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return 2 * r * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function withDistance(lat: number, lng: number, locations: DhlLocation[]) {
+  return locations
+    .map((l) => ({ ...l, distanceKm: Number((l.distanceKm ?? distKm(lat, lng, l.latitude, l.longitude)).toFixed(2)) }))
+    .sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+}
+
+function mapDhlResponse(raw: any): DhlLocation[] {
+  const list = raw?.locations ?? raw?.data ?? raw?.items ?? [];
+  return list
+    .map((it: any) => ({
+      id: String(it.id ?? it.locationId ?? it.code ?? ""),
+      name: it.name ?? it.locationName ?? it.displayName ?? "Sucursal DHL",
+      street: it.address?.streetLine1 ?? it.address?.street ?? it.street ?? "",
+      exteriorNumber: it.address?.streetNumber ?? it.exteriorNumber ?? "",
+      neighborhood: it.address?.district ?? it.neighborhood ?? "",
+      postalCode: it.address?.postalCode ?? it.postalCode ?? "",
+      city: it.address?.city ?? it.city ?? "",
+      state: it.address?.state ?? it.state ?? "",
+      fullAddress:
+        it.fullAddress ??
+        [it.address?.streetLine1 ?? it.street, it.address?.streetNumber ?? it.exteriorNumber, it.address?.city ?? it.city, it.address?.state ?? it.state]
+          .filter(Boolean)
+          .join(", "),
+      latitude: Number(it.position?.latitude ?? it.latitude ?? it.lat),
+      longitude: Number(it.position?.longitude ?? it.longitude ?? it.lng),
+      distanceKm: Number(it.distance ?? it.distanceKm ?? 0),
+      schedule: it.openingHours ?? it.schedule,
+      locationType: it.type ?? it.locationType
+    }))
+    .filter((x: DhlLocation) => x.id && !Number.isNaN(x.latitude) && !Number.isNaN(x.longitude));
+}
+
+async function fetchRealDhlLocations(lat: number, lng: number): Promise<DhlLocation[]> {
 export async function fetchDhlLocations(lat: number, lng: number): Promise<DhlLocation[]> {
   if (process.env.DHL_USE_MOCK !== "false") {
     return mockLocations
@@ -69,6 +102,17 @@ export async function fetchDhlLocations(lat: number, lng: number): Promise<DhlLo
   const token = process.env.DHL_API_TOKEN;
   if (!base || !token) throw new Error("DHL API no configurada");
 
+  const endpoint = `${base}${base.includes("?") ? "&" : "?"}latitude=${lat}&longitude=${lng}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number(process.env.DHL_API_TIMEOUT_MS || 10000));
+
+  const res = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "DHL-API-Key": token,
+      "x-api-key": token,
+      Accept: "application/json"
+    },
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   const res = await fetch(`${base}?latitude=${lat}&longitude=${lng}`, {
@@ -79,6 +123,25 @@ export async function fetchDhlLocations(lat: number, lng: number): Promise<DhlLo
 
   if (!res.ok) {
     if (res.status === 401) throw new Error("401");
+    throw new Error(`DHL_${res.status}`);
+  }
+
+  const json = await res.json();
+  const mapped = mapDhlResponse(json);
+  if (!mapped.length) throw new Error("DHL_EMPTY");
+  return withDistance(lat, lng, mapped);
+}
+
+export async function fetchDhlLocations(lat: number, lng: number): Promise<DhlLocation[]> {
+  const useMock = process.env.DHL_USE_MOCK !== "false";
+  if (useMock) return withDistance(lat, lng, mockLocations);
+
+  try {
+    return await fetchRealDhlLocations(lat, lng);
+  } catch (error) {
+    if (process.env.DHL_FALLBACK_TO_MOCK === "false") throw error;
+    return withDistance(lat, lng, mockLocations);
+  }
     throw new Error("DHL_UNAVAILABLE");
   }
 

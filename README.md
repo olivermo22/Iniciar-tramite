@@ -19,6 +19,14 @@ Aplicación full-stack con Next.js + TypeScript + Prisma + PostgreSQL para captu
 6. `npm run dev`
 
 ## Acceso demo operadores
+- Usuario: `ADMIN`
+- Contraseña: `1793`
+- Si tu DB aún no está lista, el acceso provisional funciona con `OPERATOR_DEMO_USERNAME` y `OPERATOR_DEMO_PASSWORD`.
+
+## DHL (mapa/sucursales)
+- Para pruebas rápidas usa `DHL_USE_MOCK=true`.
+- Para API real: `DHL_USE_MOCK=false`, define `DHL_API_BASE_URL` y `DHL_API_TOKEN`.
+- Si la API real falla, por defecto hay fallback a mock (`DHL_FALLBACK_TO_MOCK=true`).
 - Usuario: `operador`
 - Contraseña: `demo1234`
 
