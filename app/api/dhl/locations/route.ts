@@ -12,10 +12,5 @@ export async function GET(req: NextRequest) {
     const msg = error?.message || "error";
     const status = msg === "401" ? 401 : 503;
     return NextResponse.json({ error: msg, locations: [] }, { status });
-    return NextResponse.json({ locations });
-  } catch (error: any) {
-    const msg = error?.message || "error";
-    const status = msg === "401" ? 401 : 503;
-    return NextResponse.json({ error: msg }, { status });
   }
 }
