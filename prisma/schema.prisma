@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ApplicationStatus {
+  nueva
+  revisada
+  en_proceso
+  pendiente
+  completada
+  cancelada
+}
+
+model Operator {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  role         String   @default("operator")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Application {
+  id                         String            @id @default(cuid())
+  folio                      String            @unique
+  status                     ApplicationStatus @default(nueva)
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+  firstName                  String
+  lastName                   String
+  curp                       String
+  whatsappPhone              String
+  licenseType                String
+  validity                   String
+  acceptsGuerreroAddress     Boolean
+  allergiesRestrictions      String?
+  bloodType                  String
+  emergencyContactName       String
+  emergencyContactPhone      String
+  recipientName              String
+  recipientPhone             String
+  dhlLocationId              String
+  dhlLocationName            String
+  dhlStreet                  String
+  dhlExteriorNumber          String?
+  dhlNeighborhood            String?
+  dhlPostalCode              String?
+  dhlCity                    String?
+  dhlState                   String?
+  dhlFullAddress             String
+  dhlLatitude                Float
+  dhlLongitude               Float
+  dhlDistanceKm              Float?
+  dhlSchedule                String?
+  dhlLocationType            String?
+  personPhotoUrl             String
+  personPhotoMime            String
+  personPhotoSize            Int
+  personPhotoSource          String
+  personPhotoGlassesStatus   String
+  idPhotoUrl                 String
+  idPhotoMime                String
+  idPhotoSize                Int
+  idPhotoSource              String
+  signatureUrl               String
+  signatureType              String
+  whatsappMessageText        String
+  whatsappTargetNumber       String
+  whatsappSentAt             DateTime?
+  whatsappResendCount        Int               @default(0)
+  createdByOperator          String?
+  lastViewedByOperator       String?
+  notes                      String?
+  events                     ApplicationEvent[]
+}
+
+model ApplicationEvent {
+  id            String   @id @default(cuid())
+  applicationId String
+  eventType     String
+  eventPayload  Json?
+  createdAt     DateTime @default(now())
+  createdBy     String?
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
