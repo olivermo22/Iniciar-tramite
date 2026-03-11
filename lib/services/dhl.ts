@@ -91,6 +91,13 @@ function mapDhlResponse(raw: any): DhlLocation[] {
 }
 
 async function fetchRealDhlLocations(lat: number, lng: number): Promise<DhlLocation[]> {
+export async function fetchDhlLocations(lat: number, lng: number): Promise<DhlLocation[]> {
+  if (process.env.DHL_USE_MOCK !== "false") {
+    return mockLocations
+      .map((l) => ({ ...l, distanceKm: Number(distKm(lat, lng, l.latitude, l.longitude).toFixed(2)) }))
+      .sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+  }
+
   const base = process.env.DHL_API_BASE_URL;
   const token = process.env.DHL_API_TOKEN;
   if (!base || !token) throw new Error("DHL API no configurada");
@@ -106,6 +113,10 @@ async function fetchRealDhlLocations(lat: number, lng: number): Promise<DhlLocat
       "x-api-key": token,
       Accept: "application/json"
     },
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  const res = await fetch(`${base}?latitude=${lat}&longitude=${lng}`, {
+    headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
     signal: controller.signal
   }).finally(() => clearTimeout(timeout));
@@ -131,4 +142,24 @@ export async function fetchDhlLocations(lat: number, lng: number): Promise<DhlLo
     if (process.env.DHL_FALLBACK_TO_MOCK === "false") throw error;
     return withDistance(lat, lng, mockLocations);
   }
+    throw new Error("DHL_UNAVAILABLE");
+  }
+
+  const json = await res.json();
+  return (json.locations || []).map((it: any) => ({
+    id: String(it.id),
+    name: it.name,
+    street: it.address?.streetLine1 || "",
+    exteriorNumber: it.address?.streetNumber || "",
+    neighborhood: it.address?.district || "",
+    postalCode: it.address?.postalCode || "",
+    city: it.address?.city || "",
+    state: it.address?.state || "",
+    fullAddress: `${it.address?.streetLine1 || ""} ${it.address?.streetNumber || ""}, ${it.address?.city || ""}`,
+    latitude: Number(it.position?.latitude),
+    longitude: Number(it.position?.longitude),
+    distanceKm: it.distance,
+    schedule: it.openingHours,
+    locationType: it.type
+  }));
 }

@@ -8,6 +8,7 @@ const fallbackPassword = process.env.OPERATOR_DEMO_PASSWORD || "1793";
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || "dev-secret-change-me",
+export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/operators/login" },
   providers: [
@@ -36,6 +37,11 @@ export const authOptions: NextAuthOptions = {
         }
 
         return null;
+        const user = await prisma.operator.findFirst({ where: { username: credentials.username, isActive: true } });
+        if (!user) return null;
+        const valid = await bcrypt.compare(credentials.password, user.passwordHash);
+        if (!valid) return null;
+        return { id: user.id, name: user.name, email: user.username, role: user.role } as any;
       }
     })
   ],

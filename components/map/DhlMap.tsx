@@ -11,6 +11,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png"
 });
 
+import "leaflet/dist/leaflet.css";
+
 type Location = {
   id: string;
   name: string;
@@ -33,6 +35,7 @@ function Recenter({ position }: { position: [number, number] }) {
   useEffect(() => {
     map.setView(position, 12);
   }, [position, map]);
+  useEffect(() => { map.setView(position, 12); }, [position, map]);
   return null;
 }
 
@@ -69,6 +72,18 @@ export function DhlMap({ onConfirm }: { onConfirm: (location: Location) => void 
       },
       () => load(center[0], center[1])
     );
+
+  async function load(lat: number, lng: number) {
+    const res = await fetch(`/api/dhl/locations?lat=${lat}&lng=${lng}`);
+    const json = await res.json();
+    if (res.ok) setLocations(json.locations);
+  }
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition((p) => {
+      setCenter([p.coords.latitude, p.coords.longitude]);
+      load(p.coords.latitude, p.coords.longitude);
+    }, () => load(center[0], center[1]));
   }, []);
 
   return (
@@ -101,6 +116,17 @@ export function DhlMap({ onConfirm }: { onConfirm: (location: Location) => void 
               <br />
               {loc.fullAddress}
             </Popup>
+      <button type="button" className="px-3 py-2 border rounded-lg text-sm w-fit" onClick={() => navigator.geolocation.getCurrentPosition((p) => {
+        const pos: [number, number] = [p.coords.latitude, p.coords.longitude];
+        setCenter(pos);
+        load(pos[0], pos[1]);
+      })}>Centrar en mi ubicación</button>
+      <MapContainer center={center} zoom={11} className="h-72 rounded-lg z-0">
+        <Recenter position={center} />
+        <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {locations.map((loc) => (
+          <Marker key={loc.id} position={[loc.latitude, loc.longitude]} eventHandlers={{ click: () => setSelected(loc) }}>
+            <Popup>{loc.name}<br />{loc.fullAddress}</Popup>
           </Marker>
         ))}
       </MapContainer>
@@ -110,6 +136,7 @@ export function DhlMap({ onConfirm }: { onConfirm: (location: Location) => void 
       ) : (
         <p className="text-sm text-slate-500">Sin seleccionar</p>
       )}
+      {selected ? <div className="text-sm rounded-lg bg-slate-100 p-3">{selected.name} - {selected.fullAddress}</div> : <p className="text-sm text-slate-500">Sin seleccionar</p>}
 
       {selected && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
@@ -132,6 +159,8 @@ export function DhlMap({ onConfirm }: { onConfirm: (location: Location) => void 
               >
                 Confirmar sucursal
               </button>
+              <button className="px-3 py-2 border rounded-lg" onClick={() => setSelected(null)}>Cancelar</button>
+              <button className="px-3 py-2 bg-brand-500 text-white rounded-lg" onClick={() => { onConfirm(selected); setSelected(null); }}>Confirmar sucursal</button>
             </div>
           </div>
         </div>

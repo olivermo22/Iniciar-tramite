@@ -7,6 +7,11 @@ async function main() {
     where: { username: "ADMIN" },
     update: {},
     create: { name: "ADMIN", username: "ADMIN", passwordHash: hash, role: "admin" }
+  const hash = await bcrypt.hash("demo1234", 10);
+  await prisma.operator.upsert({
+    where: { username: "operador" },
+    update: {},
+    create: { name: "Operador Demo", username: "operador", passwordHash: hash, role: "admin" }
   });
 }
 
